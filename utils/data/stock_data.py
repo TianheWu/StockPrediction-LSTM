@@ -1,13 +1,14 @@
-import numpy
+import torch
 import torch.utils.data
 import numpy as np
+
 from openpyxl import load_workbook
 from utils.data_process.process_data import get_sheet_col, normalize
 
 
 class StockDataset(torch.utils.data.Dataset):
     """Dataset of stock"""
-    def __init__(self, path_data):
+    def __init__(self, path_data, start_idx=0.0, end_idx=1.0):
         wb = load_workbook(path_data)
         sheet = wb.active
         col_num = sheet.max_column
@@ -30,8 +31,12 @@ class StockDataset(torch.utils.data.Dataset):
         ret_x = ret_x[:-1]
         ret_x = np.concatenate((ret_x, start[:, np.newaxis]), axis=1)
 
-        self.data = ret_x
-        self.label = ret_label
+        len_data = ret_x.shape[0]
+        ret_x = ret_x[int(start_idx * len_data):int(end_idx * len_data)]
+        ret_label = ret_label[int(start_idx * len_data):int(end_idx * len_data)]
+
+        self.data = torch.from_numpy(ret_x).unsqueeze(0).type(torch.double)
+        self.label = torch.from_numpy(ret_label).unsqueeze(0).type(torch.double)
 
     def __getitem__(self, index):
         return self.data[index], self.label[index]
