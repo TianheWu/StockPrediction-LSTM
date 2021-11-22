@@ -1,7 +1,6 @@
 import datetime
 import os
 import argparse
-import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -9,6 +8,9 @@ import torch.nn as nn
 from utils.data.stock_data import StockDataset
 from model.lstm import Lstm
 from torch.utils.data import DataLoader
+
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 
 def parse_args():
@@ -37,11 +39,13 @@ def validate():
     pass
 
 
-def train(epoch, train_data, net, optimizer, criterion, batches_per_epoch):
+def train(epoch, train_data, net, optimizer, criterion, device, batches_per_epoch):
     batch_idx = 0
     result = 0
     while batch_idx < batches_per_epoch:
         for x, y in train_data:
+            x = x.to(device)
+            y = y.to(device)
             batch_idx += 1
             if batch_idx >= batches_per_epoch:
                 break
@@ -85,10 +89,10 @@ def run():
     )
     print("Done")
     print("Loading Network...")
-
+    device = torch.device("cuda:2")
     input_size = 8
     net = Lstm(input_size)
-    net = net.double()
+    net = net.double().to(device)
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     criterion = nn.MSELoss()
     print("Done")
@@ -96,7 +100,7 @@ def run():
     best_val_loss = float("inf")
     for epoch in range(args.epochs):
         print("Beginning Epoch {:02d}".format(epoch))
-        train_results = train(epoch, train_data, net, optimizer, criterion, args.batches_per_epoch)
+        train_results = train(epoch, train_data, net, optimizer, criterion, device, args.batches_per_epoch)
         if train_results < best_val_loss or epoch == 0 or (epoch % 10) == 0:
             best_val_loss = train_results
             torch.save(net, os.path.join(save_folder, 'epoch_%02d_iou_%0.2f' % (epoch, train_results)))
