@@ -25,28 +25,26 @@ def parse_args():
     parser.add_argument('--description', type=str, default='', help='Training description')
 
     # Evaluation
-    parser.add_argument('--batch-size', type=int, default=4, help='Batch size')
+    parser.add_argument('--batch-size', type=int, default=8, help='Batch size')
     parser.add_argument('--num-workers', type=int, default=4, help='Dataset workers')
     parser.add_argument('--weight-path', type=str, help='LSTM model weights')
+    parser.add_argument('--pre', type=int, default=10, help='Pre days')
 
     args = parser.parse_args()
     return args
 
 
 def validate(val_data, train_data, net):
-    axis_x1 = np.linspace(1, 1180, 1180)
+    axis_x1 = np.linspace(1, 117, 117)
     res_label = []
     res_pred = []
     for x, y in train_data:
         res_label.extend(list(y.detach().numpy()))
-        res_pred.extend(list(net(x.unsqueeze(0)).squeeze(0).detach().numpy().squeeze()))
+        res_pred.extend(list(net(x).squeeze(0).detach().numpy().squeeze()))
 
     for x, y in val_data:
         res_label.extend(list(y.detach().numpy()))
-        res_pred.extend(list(net(x.unsqueeze(0)).squeeze(0).detach().numpy()[0]))
-    
-    print(len(res_pred))
-    print(len(res_label))
+        res_pred.extend(list(net(x).squeeze(0).detach().numpy()))
     
     plt.plot(axis_x1, res_label, label='label')
     plt.plot(axis_x1, res_pred, label='pred')
@@ -58,8 +56,8 @@ def run():
     args = parse_args()
     
     print("Loading Stock Dataset...")
-    train_dataset = StockDataset(args.dataset_path, start_idx=0.0, end_idx=args.split)
-    val_dataset = StockDataset(args.dataset_path, start_idx=args.split, end_idx=1.0)
+    train_dataset = StockDataset(args.dataset_path, start_idx=0.0, end_idx=args.split, pre=args.pre)
+    val_dataset = StockDataset(args.dataset_path, start_idx=args.split, end_idx=1.0, pre=args.pre)
     train_data = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -75,7 +73,7 @@ def run():
     print("Done")
     print("Loading Network...")
     # device = torch.device("cuda:0")
-    input_size = 8
+    input_size = 7
     net = Lstm(input_size)
     net = net.double()
     net.load_state_dict(torch.load(args.weight_path, map_location=torch.device('cpu')), strict=False)

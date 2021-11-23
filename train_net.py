@@ -24,10 +24,11 @@ def parse_args():
     parser.add_argument('--description', type=str, default='', help='Training description')
 
     # Training
-    parser.add_argument('--batch-size', type=int, default=2, help='Batch size')
+    parser.add_argument('--batch-size', type=int, default=8, help='Batch size')
     parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
     parser.add_argument('--num-workers', type=int, default=4, help='Dataset workers')
     parser.add_argument('--epochs', type=int, default=500, help='Training epochs')
+    parser.add_argument('--pre', type=int, default=10, help='Pre days')
 
     args = parser.parse_args()
     return args
@@ -68,7 +69,7 @@ def train(epoch, train_data, net, optimizer, criterion, device):
         optimizer.step()
 
     ret = loss_sum / batch_idx
-    print('Epoch: {}, Loss: {:0.4f}'.format(epoch, ret))
+    print('Train Epoch: {}, Loss: {:0.4f}'.format(epoch, ret))
 
     return ret
 
@@ -82,8 +83,8 @@ def run():
         os.makedirs(save_folder)
 
     print("Loading Stock Dataset...")
-    train_dataset = StockDataset(args.dataset_path, start_idx=0.0, end_idx=args.split)
-    val_dataset = StockDataset(args.dataset_path, start_idx=args.split, end_idx=1.0)
+    train_dataset = StockDataset(args.dataset_path, start_idx=0.0, end_idx=args.split, pre=args.pre)
+    val_dataset = StockDataset(args.dataset_path, start_idx=args.split, end_idx=1.0, pre=args.pre)
     train_data = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -103,7 +104,7 @@ def run():
     print("Done")
     print("Loading Network...")
     device = torch.device("cuda:0")
-    input_size = 8
+    input_size = 7
     net = Lstm(input_size)
     net = net.to(device).double()
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
