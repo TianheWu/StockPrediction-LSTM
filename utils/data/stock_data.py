@@ -14,6 +14,8 @@ class StockDataset(torch.utils.data.Dataset):
         col_num = sheet.max_column
         dataset = []
         for i in range(1, col_num):
+            if i == 7:
+                continue
             col = get_sheet_col(sheet, i)[1:-2]
             dataset.append(normalize(col))
             if i == 1:
@@ -35,8 +37,8 @@ class StockDataset(torch.utils.data.Dataset):
         ret_x = ret_x[int(start_idx * len_data):int(end_idx * len_data)]
         ret_label = ret_label[int(start_idx * len_data):int(end_idx * len_data)]
 
-        self.data = torch.from_numpy(ret_x).unsqueeze(0).type(torch.double)
-        self.label = torch.from_numpy(ret_label).unsqueeze(0).type(torch.double)
+        self.data = torch.from_numpy(ret_x).type(torch.double)
+        self.label = torch.from_numpy(ret_label).type(torch.double)
 
     def __getitem__(self, index):
         return self.data[index], self.label[index]

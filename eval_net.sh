@@ -1,0 +1,1 @@
+python eval_net.py --dataset-path ./dataset/dataset.xlsx --weight-path ./weights/epoch_464_loss_0.0004_statedict.pt

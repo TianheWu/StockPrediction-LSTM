@@ -1,4 +1,3 @@
-import datetime
 import os
 import argparse
 import torch
@@ -10,7 +9,7 @@ from model.lstm import Lstm
 from torch.utils.data import DataLoader
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1, 2"
 
 
 def parse_args():
@@ -21,47 +20,57 @@ def parse_args():
     parser.add_argument('--split', type=float, default=0.8, help='Fraction of data for training (remainder is validation)')
 
     # Output
-    parser.add_argument('--outdir', type=str, default='output/models/', help='Training Output Directory')
+    parser.add_argument('--outdir', type=str, default='output/', help='Training Output Directory')
     parser.add_argument('--description', type=str, default='', help='Training description')
 
     # Training
-    parser.add_argument('--batch-size', type=int, default=8, help='Batch size')
-    parser.add_argument('--lr', type=float, default=0.005, help='Learning rate')
+    parser.add_argument('--batch-size', type=int, default=2, help='Batch size')
+    parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
     parser.add_argument('--num-workers', type=int, default=4, help='Dataset workers')
-    parser.add_argument('--epochs', type=int, default=50, help='Training epochs')
-    parser.add_argument('--batches-per-epoch', type=int, default=50, help='Batches per Epoch')
+    parser.add_argument('--epochs', type=int, default=500, help='Training epochs')
 
     args = parser.parse_args()
     return args
 
 
-def validate():
-    pass
-
-
-def train(epoch, train_data, net, optimizer, criterion, device, batches_per_epoch):
+def validate(val_data, net, criterion, device, epoch):
+    net.eval()
+    loss_sum = 0
     batch_idx = 0
-    result = 0
-    while batch_idx < batches_per_epoch:
-        for x, y in train_data:
-            x = x.to(device)
-            y = y.to(device)
-            batch_idx += 1
-            if batch_idx >= batches_per_epoch:
-                break
-            pred = net(x)
-            loss = criterion(pred, y)
-            if batch_idx % 10 == 0:
-                print('Epoch: {}, Batch: {}, Loss: {:0.4f}'.format(epoch, batch_idx, loss.item()))
-            result += loss.item()
+    for x, y in val_data:
+        batch_idx += 1
+        x = x.to(device)
+        y = y.to(device)
+        pred = net(x.unsqueeze(0))
+        loss = criterion(pred, y.unsqueeze(0))
+        loss_sum += loss.item()
+    
+    ret = loss_sum / batch_idx
+    print('Eval Epoch: {}, Loss: {:0.4f}'.format(epoch, ret))
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+    return ret
 
-    result /= batch_idx
 
-    return result
+def train(epoch, train_data, net, optimizer, criterion, device):
+    net.train()
+    loss_sum = 0
+    batch_idx = 0
+    for x, y in train_data:
+        batch_idx += 1
+        x = x.to(device)
+        y = y.to(device)
+        pred = net(x.unsqueeze(0))
+        loss = criterion(pred, y.unsqueeze(0))
+        loss_sum += loss.item()
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    ret = loss_sum / batch_idx
+    print('Epoch: {}, Loss: {:0.4f}'.format(epoch, ret))
+
+    return ret
 
 
 def run():
@@ -81,6 +90,10 @@ def run():
         shuffle=True,
         num_workers=args.num_workers
     )
+    # x, y = train_dataset[0]
+    # print(x.shape)
+    # print(x)
+
     val_data = DataLoader(
         val_dataset,
         batch_size=1,
@@ -89,22 +102,22 @@ def run():
     )
     print("Done")
     print("Loading Network...")
-    device = torch.device("cuda:2")
+    device = torch.device("cuda:0")
     input_size = 8
     net = Lstm(input_size)
-    net = net.double().to(device)
+    net = net.to(device).double()
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     criterion = nn.MSELoss()
     print("Done")
 
     best_val_loss = float("inf")
     for epoch in range(args.epochs):
-        print("Beginning Epoch {:02d}".format(epoch))
-        train_results = train(epoch, train_data, net, optimizer, criterion, device, args.batches_per_epoch)
-        if train_results < best_val_loss or epoch == 0 or (epoch % 10) == 0:
-            best_val_loss = train_results
-            torch.save(net, os.path.join(save_folder, 'epoch_%02d_iou_%0.2f' % (epoch, train_results)))
-            torch.save(net.state_dict(), os.path.join(save_folder, 'epoch_%02d_iou_%0.2f_statedict.pt' % (epoch, train_results)))
+        train_results = train(epoch, train_data, net, optimizer, criterion, device)
+        test_results = validate(val_data, net, criterion, device, epoch)
+        if test_results < best_val_loss:
+            best_val_loss = test_results
+            torch.save(net, os.path.join(save_folder, 'epoch_%03d_loss_%0.4f' % (epoch, best_val_loss)))
+            torch.save(net.state_dict(), os.path.join(save_folder, 'epoch_%03d_loss_%0.4f_statedict.pt' % (epoch, best_val_loss)))
 
 
 if __name__ == '__main__':
