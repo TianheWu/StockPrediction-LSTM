@@ -1,5 +1,7 @@
 __pycache__
 
 output/*
+weights/*
 
+dataset/*
 *.xlsx
